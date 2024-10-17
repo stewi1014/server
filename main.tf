@@ -17,44 +17,9 @@ provider "aws" {
 }
 
 resource "aws_vpc" "vpc" {
-  cidr_block                       = var.cidr_block
+  cidr_block                       = "10.0.0.0/16"
   enable_dns_hostnames             = true
   assign_generated_ipv6_cidr_block = true
-}
-
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.vpc.id
-}
-
-resource "aws_route_table" "rt" {
-  vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.gw.id
-  }
-
-  route {
-    ipv6_cidr_block = "::/0"
-    gateway_id      = aws_internet_gateway.gw.id
-  }
-}
-
-resource "aws_route_table_association" "rta" {
-  route_table_id = aws_route_table.rt.id
-  subnet_id      = aws_subnet.subnet.id
-}
-
-resource "aws_ec2_instance_connect_endpoint" "endpoint" {
-  subnet_id = aws_subnet.subnet.id
-}
-
-resource "aws_subnet" "subnet" {
-  vpc_id                          = aws_vpc.vpc.id
-  cidr_block                      = cidrsubnet(var.cidr_block, 8, 0)
-  ipv6_cidr_block                 = cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, 0)
-  assign_ipv6_address_on_creation = true
-  map_public_ip_on_launch         = false
 }
 
 resource "aws_route53_zone" "lenqua_link" {
@@ -123,22 +88,13 @@ resource "aws_iam_instance_profile" "main" {
   role = aws_iam_role.manage_ec2.name
 }
 
-# allow the vpc, ssh and all egress.
-resource "aws_security_group" "allow_vpc_ssh_egress" {
+resource "aws_security_group" "allow_all" {
   vpc_id = aws_vpc.vpc.id
 
   ingress {
     from_port        = 0
     to_port          = 0
     protocol         = "-1"
-    cidr_blocks      = [aws_vpc.vpc.cidr_block]
-    ipv6_cidr_blocks = [aws_vpc.vpc.ipv6_cidr_block]
-  }
-
-  ingress {
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/1"]
   }
@@ -163,18 +119,26 @@ resource "tls_private_key" "static_key" {
 }
 
 resource "aws_eip" "public" {
-  domain   = "vpc"
-  instance = aws_instance.main.id
+  domain            = "vpc"
+  network_interface = aws_network_interface.public.id
+}
+
+resource "aws_network_interface" "public" {
+  subnet_id       = aws_subnet.public.id
+  security_groups = [aws_security_group.allow_all.id]
+  private_ips     = ["10.0.128.4"]
+}
+
+resource "aws_network_interface" "private" {
+  subnet_id         = aws_subnet.private.id
+  security_groups   = [aws_security_group.allow_all.id]
+  private_ips       = ["10.0.0.4"]
+  source_dest_check = false
 }
 
 resource "aws_instance" "main" {
-  instance_type = "t4g.nano"
-  ami           = data.aws_ami.arm.id
-  vpc_security_group_ids = [
-    aws_security_group.allow_vpc_ssh_egress.id,
-    aws_security_group.allow_minecraft.id
-  ]
-  subnet_id            = aws_subnet.subnet.id
+  instance_type        = "t4g.nano"
+  ami                  = data.aws_ami.arm.id
   availability_zone    = "ap-southeast-2b"
   key_name             = aws_key_pair.local_ssh_key.key_name
   iam_instance_profile = aws_iam_instance_profile.main.name
@@ -183,12 +147,23 @@ resource "aws_instance" "main" {
     Name = "Main"
   }
 
+  network_interface {
+    network_interface_id = aws_network_interface.public.id
+    device_index         = 0
+  }
+
+  network_interface {
+    network_interface_id = aws_network_interface.private.id
+    device_index         = 1
+  }
+
   user_data_replace_on_change = true
   user_data = templatefile("main.yml.tpl", {
-    domain_name = "lenqua.link"
+    domain_name  = "lenqua.link"
+    private_cidr = aws_subnet.private.cidr_block
     mcproxy_config = templatefile("mcproxy_config.json.tpl", {
       vanilla_dest_ip  = aws_instance.minecraft.private_ip
-      vanilla_region   = aws_instance.minecraft.availability_zone
+      vanilla_region   = "ap-southeast-2"
       vanilla_instance = aws_instance.minecraft.id
     })
     private_key = tls_private_key.static_key.private_key_pem
