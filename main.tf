@@ -88,26 +88,6 @@ resource "aws_iam_instance_profile" "main" {
   role = aws_iam_role.manage_ec2.name
 }
 
-resource "aws_security_group" "allow_all" {
-  vpc_id = aws_vpc.vpc.id
-
-  ingress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/1"]
-  }
-
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/1"]
-  }
-}
-
 resource "aws_key_pair" "local_ssh_key" {
   key_name   = "ssh key"
   public_key = file("~/.ssh/id_rsa.pub")
