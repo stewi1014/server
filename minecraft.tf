@@ -27,7 +27,7 @@ resource "tls_private_key" "minecraft" {
 
 resource "aws_ebs_volume" "minecraft" {
   availability_zone = "ap-southeast-2b"
-  size              = 50
+  size              = 20
   final_snapshot    = true
 
   tags = {
@@ -65,10 +65,9 @@ resource "aws_instance" "minecraft" {
 
   user_data_replace_on_change = true
   user_data = templatefile("minecraft.yml.tpl", {
-    domain_name       = "example.com"
-    block_dev         = "/dev/xvdf"
-    private_key       = tls_private_key.minecraft.private_key_pem
-    public_key        = tls_private_key.minecraft.public_key_pem
-    minecraft_service = templatefile("minecraft.service.tpl", {})
+    minecraft_volume_id = aws_ebs_volume.minecraft.id
+    domain_name         = "vanilla.lenqua.link"
+    private_key         = tls_private_key.minecraft.private_key_pem
+    public_key          = tls_private_key.minecraft.public_key_pem
   })
 }

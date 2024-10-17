@@ -50,9 +50,11 @@ resource "aws_ec2_instance_connect_endpoint" "endpoint" {
 }
 
 resource "aws_subnet" "subnet" {
-  vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = cidrsubnet(var.cidr_block, 8, 0)
-  map_public_ip_on_launch = false
+  vpc_id                          = aws_vpc.vpc.id
+  cidr_block                      = cidrsubnet(var.cidr_block, 8, 0)
+  ipv6_cidr_block                 = cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, 0)
+  assign_ipv6_address_on_creation = true
+  map_public_ip_on_launch         = false
 }
 
 resource "aws_route53_zone" "lenqua_link" {
@@ -184,6 +186,11 @@ resource "aws_instance" "main" {
   user_data_replace_on_change = true
   user_data = templatefile("main.yml.tpl", {
     domain_name = "lenqua.link"
+    mcproxy_config = templatefile("mcproxy_config.json.tpl", {
+      vanilla_dest_ip  = aws_instance.minecraft.private_ip
+      vanilla_region   = aws_instance.minecraft.availability_zone
+      vanilla_instance = aws_instance.minecraft.id
+    })
     private_key = tls_private_key.static_key.private_key_pem
     public_key  = tls_private_key.static_key.public_key_pem
   })

@@ -3,26 +3,15 @@
 hostname: minecraft
 fqdn: ${domain_name}
 
-swap:
-  filename: swapfile
-  size: auto
-  max_size: 8000000000
-
 bootcmd:
-  - while [ ! -e ${block_dev} ]; do sleep 1; done
-
-disk_setup:
-  ${block_dev}:
-    table_type: gpt
-    layout: true
-
+  - while [ ! -e /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")} ]; do sleep 1; done
 fs_setup:
-  - label: minecraft
-    device: ${block_dev}1
-    filesystem: xfs
+  - filesystem: xfs
+    device: /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
 
-mounts:
-  - [LABEL=minecraft, /opt/minecraft, "auto", "defaults,nofail", "0", "0"]
+swap:
+  filename: /swapfile
+  size: 8589934592
 
 packages:
   - java
@@ -36,9 +25,30 @@ ssh_keys:
 write_files:
   - path: /etc/systemd/system/minecraft.service
     content: |
-      ${indent(6, minecraft_service)}
+      [Unit]
+      Description=Minecraft Server
+      After=network.target opt-minecraft.mount
+
+      [Install]
+      WantedBy=multi-user.target
+
+      [Service]
+      Restart=always
+      WorkingDirectory=/opt/minecraft
+      ExecStart=/usr/bin/screen -DmS minecraft /opt/minecraft/start.sh
+      ExecStop=/usr/bin/screen -p 0 -S minecraft -X eval 'stuff \"stop\"\015'
+      ExecStop=/bin/bash -c "while ps -p $MAINPID > /dev/null; do /bin/sleep 1; done"
+
+  - path: /etc/systemd/system/opt-minecraft.mount
+    content: |
+      [Unit]
+      Description=Mount minecraft partition
+      [Mount]
+      What=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
+      Where=/opt/minecraft
+      Options=defaults,noatime
 
 runcmd:
-  - [systemctl, daemon-reload]
-  - [systemctl, enable, minecraft.service]
-  - [systemctl, start, minecraft.service]
+  - systemctl daemon-reload
+  - systemctl enable minecraft.service
+  - systemctl start minecraft.service
