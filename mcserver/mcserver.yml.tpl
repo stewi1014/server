@@ -1,17 +1,16 @@
 #cloud-config
 
 hostname: minecraft
-fqdn: ${domain_name}
 
 bootcmd:
   - while [ ! -e /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")} ]; do sleep 1; done
 fs_setup:
-  - filesystem: xfs
-    device: /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
+  - device: /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
+    filesystem: ext4
 
 swap:
   filename: /swapfile
-  size: 8589934592
+  size: 4294967296
 
 packages:
   - java
@@ -28,10 +27,8 @@ write_files:
       [Unit]
       Description=Minecraft Server
       After=network.target opt-minecraft.mount
-
       [Install]
       WantedBy=multi-user.target
-
       [Service]
       Restart=always
       WorkingDirectory=/opt/minecraft

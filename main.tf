@@ -98,6 +98,41 @@ resource "tls_private_key" "static_key" {
   rsa_bits  = 4096
 }
 
+resource "aws_security_group" "main" {
+  vpc_id = aws_vpc.vpc.id
+
+  ingress {
+    from_port        = 25565
+    to_port          = 25565
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/1"]
+  }
+
+  ingress {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/1"]
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/1"]
+  }
+}
+
 resource "aws_eip" "public" {
   domain            = "vpc"
   network_interface = aws_network_interface.public.id
@@ -105,13 +140,13 @@ resource "aws_eip" "public" {
 
 resource "aws_network_interface" "public" {
   subnet_id       = aws_subnet.public.id
-  security_groups = [aws_security_group.allow_all.id]
+  security_groups = [aws_security_group.main.id]
   private_ips     = ["10.0.128.4"]
 }
 
 resource "aws_network_interface" "private" {
   subnet_id         = aws_subnet.private.id
-  security_groups   = [aws_security_group.allow_all.id]
+  security_groups   = [aws_security_group.main.id]
   private_ips       = ["10.0.0.4"]
   source_dest_check = false
 }
@@ -141,12 +176,50 @@ resource "aws_instance" "main" {
   user_data = templatefile("main.yml.tpl", {
     domain_name  = "lenqua.link"
     private_cidr = aws_subnet.private.cidr_block
-    mcproxy_config = templatefile("mcproxy_config.json.tpl", {
-      vanilla_dest_ip  = aws_instance.minecraft.private_ip
-      vanilla_region   = "ap-southeast-2"
-      vanilla_instance = aws_instance.minecraft.id
-    })
-    private_key = tls_private_key.static_key.private_key_pem
-    public_key  = tls_private_key.static_key.public_key_pem
+    private_key  = tls_private_key.static_key.private_key_pem
+    public_key   = tls_private_key.static_key.public_key_pem
   })
+}
+
+locals {
+  mcproxy_config = jsonencode({
+    listen = {
+      address           = ":25565"
+      fallback_version  = "1.21.1"
+      fallback_protocol = 767
+    }
+    proxies = [{
+      domains              = module.vanilla.domains
+      destination_ip       = module.vanilla.private_ip
+      destination_port     = 25565
+      destination_version  = "1.21.1"
+      destination_protocol = 767
+      shutdown_timeout     = 300
+      ec2_server = {
+        region      = "ap-southeast-2"
+        instance_id = module.vanilla.instance_id
+        hibernate   = false
+      }
+    }]
+  })
+}
+
+resource "terraform_data" "mcproxyconfig" {
+  triggers_replace = [local.mcproxy_config, aws_instance.main]
+
+  connection {
+    host        = aws_instance.main.public_ip
+    user        = "ec2-user"
+    private_key = file("~/.ssh/id_rsa")
+  }
+  provisioner "remote-exec" {
+    inline = ["while [ ! -e /opt/mcproxy/mcproxy ]; do sleep 1; done"]
+  }
+  provisioner "file" {
+    content     = local.mcproxy_config
+    destination = "/opt/mcproxy/config.json"
+  }
+  provisioner "remote-exec" {
+    inline = ["sudo systemctl restart mcproxy"]
+  }
 }
