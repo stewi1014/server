@@ -14,6 +14,9 @@ swap:
 
 packages:
   - java
+  - git
+  - git-lfs
+  - libwebp-tools
 
 ssh_keys:
   rsa_private: |

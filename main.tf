@@ -181,8 +181,13 @@ resource "aws_instance" "main" {
   })
 }
 
-locals {
-  mcproxy_config = jsonencode({
+module "mcproxy_config" {
+  source = "./service_config"
+
+  service_name = "mcproxy"
+  aws_instance = aws_instance.main
+  config_path  = "/opt/mcproxy/config.json"
+  config_contents = jsonencode({
     listen = {
       address           = ":25565"
       fallback_version  = "1.21.1"
@@ -204,22 +209,3 @@ locals {
   })
 }
 
-resource "terraform_data" "mcproxyconfig" {
-  triggers_replace = [local.mcproxy_config, aws_instance.main]
-
-  connection {
-    host        = aws_instance.main.public_ip
-    user        = "ec2-user"
-    private_key = file("~/.ssh/id_rsa")
-  }
-  provisioner "remote-exec" {
-    inline = ["while [ ! -e /opt/mcproxy/mcproxy ]; do sleep 1; done"]
-  }
-  provisioner "file" {
-    content     = local.mcproxy_config
-    destination = "/opt/mcproxy/config.json"
-  }
-  provisioner "remote-exec" {
-    inline = ["sudo systemctl restart mcproxy"]
-  }
-}

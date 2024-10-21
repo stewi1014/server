@@ -40,9 +40,8 @@ ssh_keys:
 runcmd:
   - sysctl -w net.ipv4.ip_forward=1
   - mkdir -m 777 /opt/mcproxy
-  - wget https://github.com/stewi1014/mcproxy/releases/download/v1.1/mcproxy_arm64 -O /opt/mcproxy/mcproxy
+  - wget https://github.com/stewi1014/mcproxy/releases/download/v1.2/mcproxy_arm64 -O /opt/mcproxy/mcproxy
   - chmod +x /opt/mcproxy/mcproxy
   - systemctl daemon-reload
-  - systemctl start nftables
-  - systemctl enable nftables
+  - systemctl enable --now nftables
   - systemctl enable mcproxy
