@@ -110,6 +110,22 @@ resource "aws_security_group" "main" {
   }
 
   ingress {
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/1"]
+  }
+
+  ingress {
+    from_port        = 443
+    to_port          = 443
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/1"]
+  }
+
+  ingress {
     from_port        = 22
     to_port          = 22
     protocol         = "tcp"
@@ -178,6 +194,10 @@ resource "aws_instance" "main" {
     private_cidr = aws_subnet.private.cidr_block
     private_key  = tls_private_key.static_key.private_key_pem
     public_key   = tls_private_key.static_key.public_key_pem
+    nginx_configs = yamlencode([for file in fileset("nginx", "*.conf") : {
+      path    = "/etc/nginx/conf.d/${file}"
+      content = templatefile("nginx/${file}", {})
+    }])
   })
 }
 
@@ -185,7 +205,8 @@ module "mcproxy_config" {
   source = "./service_config"
 
   service_name = "mcproxy"
-  aws_instance = aws_instance.main
+  instance_id  = aws_instance.main.id
+  public_ip    = aws_instance.main.public_ip
   config_path  = "/opt/mcproxy/config.json"
   config_contents = jsonencode({
     listen = {

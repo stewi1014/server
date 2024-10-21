@@ -28,8 +28,13 @@ write_files:
         }
       }
 
+  ${indent(2, nginx_configs)}
+
 packages:
   - nftables
+  - certbot
+  - python3-certbot-nginx
+  - nginx
 
 ssh_keys:
   rsa_private: |
@@ -40,8 +45,11 @@ ssh_keys:
 runcmd:
   - sysctl -w net.ipv4.ip_forward=1
   - mkdir -m 777 /opt/mcproxy
-  - wget https://github.com/stewi1014/mcproxy/releases/download/v1.2/mcproxy_arm64 -O /opt/mcproxy/mcproxy
+  - wget https://github.com/stewi1014/mcproxy/releases/download/v1.3/mcproxy_arm64 -O /opt/mcproxy/mcproxy
   - chmod +x /opt/mcproxy/mcproxy
   - systemctl daemon-reload
+  - certbot --nginx -d vanilla.lenqua.link -d minecraft.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
   - systemctl enable --now nftables
+  - systemctl enable --now nginx
+  - systemctl enable --now certbot-renew.timer
   - systemctl enable mcproxy

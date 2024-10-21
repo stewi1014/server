@@ -3,14 +3,53 @@ resource "aws_s3_bucket" "vanilla_dynmap" {
   bucket = "lenqua-vanilla-dynmap"
 }
 
-resource "aws_s3_bucket_website_configuration" "vanilla_dynmap" {
+resource "aws_s3_bucket_cors_configuration" "vanilla_dynmap" {
   bucket = aws_s3_bucket.vanilla_dynmap.id
+
+  cors_rule {
+    allowed_methods = ["GET"]
+    allowed_origins = ["*"]
+    expose_headers  = ["Content-Type", "ETag"]
+  }
 }
 
-resource "aws_acm_certificate" "vanilla" {
-  domain_name       = "vanilla.lenqua.link"
-  validation_method = "DNS"
-  lifecycle { create_before_destroy = true }
+resource "aws_s3_bucket_public_access_block" "vanilla_dynmap" {
+  bucket              = aws_s3_bucket.vanilla_dynmap.id
+  block_public_acls   = false
+  block_public_policy = false
+}
+
+resource "aws_s3_bucket_policy" "vanilla_dynmap_public_read" {
+  bucket = aws_s3_bucket.vanilla_dynmap.id
+  policy = data.aws_iam_policy_document.vanilla_dynmap_public_read.json
+}
+
+data "aws_iam_policy_document" "vanilla_dynmap_public_read" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.vanilla_dynmap.arn}",
+      "${aws_s3_bucket.vanilla_dynmap.arn}/*"
+    ]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_website_configuration" "vanilla_dynmap" {
+  bucket = aws_s3_bucket.vanilla_dynmap.id
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "images/blank.png"
+  }
 }
 
 data "aws_iam_policy_document" "dynmap_vanilla" {
@@ -27,13 +66,13 @@ data "aws_iam_policy_document" "dynmap_vanilla" {
 }
 
 resource "aws_iam_user" "dynmap_vanilla" {
-  name = "minecraft vanilla"
+  name = "minecraft_vanilla"
 }
 
 resource "aws_iam_user_policy" "dynmap_vanilla" {
-  name   = "minecraft vanilla"
+  name   = "minecraft_vanilla"
   user   = aws_iam_user.dynmap_vanilla.name
-  policy = data.aws_iam_policy_document.vanilla.json
+  policy = data.aws_iam_policy_document.dynmap_vanilla.json
 }
 
 resource "aws_iam_access_key" "dynmap_vanilla_key" {
@@ -45,24 +84,8 @@ output "vanilla_dynmap_key_id" {
 }
 
 output "vanilla_dynmap_key_secret" {
-  value = aws_iam_access_key.dynmap_vanilla_key.secret
-}
-
-resource "aws_route53_record" "vanilla" {
-  for_each = {
-    for dvo in aws_acm_certificate.vanilla.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-
-  allow_overwrite = true
-  name            = each.value.name
-  records         = [each.value.record]
-  ttl             = 60
-  type            = each.value.type
-  zone_id         = aws_route53_zone.lenqua_link.zone_id
+  sensitive = true
+  value     = aws_iam_access_key.dynmap_vanilla_key.secret
 }
 
 module "vanilla" {
@@ -73,5 +96,5 @@ module "vanilla" {
   vpc_id         = aws_vpc.vpc.id
   private_ip     = "10.0.0.5"
   subnet_id      = aws_subnet.private.id
-  ec2_iam_policy = data.aws_iam_policy_document.vanilla.json
+  ec2_iam_policy = data.aws_iam_policy_document.dynmap_vanilla.json
 }
