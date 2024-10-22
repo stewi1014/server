@@ -46,5 +46,4 @@ write_files:
 
 runcmd:
   - systemctl daemon-reload
-  - systemctl enable minecraft.service
-  - systemctl start minecraft.service
+  - systemctl enable --now minecraft.service

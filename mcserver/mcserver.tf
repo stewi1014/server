@@ -126,7 +126,7 @@ resource "aws_instance" "minecraft" {
   }
 
   ami                    = data.aws_ami.arm.id
-  instance_type          = "t4g.large"
+  instance_type          = "c6g.large"
   vpc_security_group_ids = [aws_security_group.minecraft.id]
   subnet_id              = var.subnet_id
   private_ip             = var.private_ip

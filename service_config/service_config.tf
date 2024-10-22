@@ -27,7 +27,10 @@ resource "terraform_data" "mcproxyconfig" {
     private_key = file("~/.ssh/id_rsa")
   }
   provisioner "remote-exec" {
-    inline = ["mkdir -p $(dirname ${var.config_path})"]
+    inline = [
+      "cloud-init status --wait",
+      "sudo mkdir -p $(dirname ${var.config_path})"
+    ]
   }
   provisioner "file" {
     content     = var.config_contents
