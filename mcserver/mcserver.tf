@@ -24,6 +24,10 @@ variable "ec2_iam_policy" {
   type = string
 }
 
+variable "ssh_key_name" {
+  type = string
+}
+
 resource "tls_private_key" "minecraft" {
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -69,13 +73,13 @@ resource "aws_security_group" "minecraft" {
   }
 }
 
-data "aws_ami" "arm" {
+data "aws_ami" "minecraft" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "architecture"
-    values = ["arm64"]
+    values = ["x86_64"]
   }
 
   filter {
@@ -125,11 +129,12 @@ resource "aws_instance" "minecraft" {
     ]
   }
 
-  ami                    = data.aws_ami.arm.id
-  instance_type          = "c6g.large"
+  ami                    = data.aws_ami.minecraft.id
+  instance_type          = "c7i.large"
   vpc_security_group_ids = [aws_security_group.minecraft.id]
   subnet_id              = var.subnet_id
   private_ip             = var.private_ip
+  key_name               = var.ssh_key_name
   iam_instance_profile   = aws_iam_instance_profile.minecraft.name
 
   tags = {

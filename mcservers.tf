@@ -97,4 +97,5 @@ module "vanilla" {
   private_ip     = "10.0.0.5"
   subnet_id      = aws_subnet.private.id
   ec2_iam_policy = data.aws_iam_policy_document.dynmap_vanilla.json
+  ssh_key_name   = aws_key_pair.local_ssh_key.key_name
 }
