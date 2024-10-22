@@ -215,7 +215,7 @@ module "mcproxy_config" {
       fallback_protocol = 767
     }
     proxies = [{
-      domains              = module.vanilla.domains
+      domains              = ["vanilla.lenqua.link", "minecraft.scarzone.online"]
       destination_ip       = module.vanilla.private_ip
       destination_port     = 25565
       destination_version  = "1.21.1"

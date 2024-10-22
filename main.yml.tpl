@@ -48,7 +48,7 @@ runcmd:
   - wget https://github.com/stewi1014/mcproxy/releases/download/v1.3/mcproxy_arm64 -O /opt/mcproxy/mcproxy
   - chmod +x /opt/mcproxy/mcproxy
   - systemctl daemon-reload
-  - certbot --nginx -d vanilla.lenqua.link -d minecraft.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
+  - certbot --nginx -d vanilla.lenqua.link -d map.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
   - systemctl enable --now nftables
   - systemctl enable --now nginx
   - systemctl enable --now certbot-renew.timer

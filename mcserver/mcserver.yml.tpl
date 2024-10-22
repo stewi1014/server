@@ -16,9 +16,9 @@ packages:
 
 ssh_keys:
   rsa_private: |
-    ${indent(4, private_key)}
+    ${indent(4, host_private_key)}
   rsa_public: |
-    ${indent(4, public_key)}
+    ${indent(4, host_public_key)}
 
 write_files:
   - path: /etc/systemd/system/minecraft.service

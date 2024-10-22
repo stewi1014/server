@@ -4,10 +4,6 @@ variable "name" {
   type = string
 }
 
-variable "domains" {
-  type = list(string)
-}
-
 variable "vpc_id" {
   type = string
 }
@@ -26,11 +22,6 @@ variable "ec2_iam_policy" {
 
 variable "ssh_key_name" {
   type = string
-}
-
-resource "tls_private_key" "minecraft" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
 }
 
 resource "aws_ebs_volume" "minecraft" {
@@ -122,6 +113,11 @@ resource "aws_iam_instance_profile" "minecraft" {
   role = aws_iam_role.minecraft.name
 }
 
+resource "tls_private_key" "host_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
 resource "aws_instance" "minecraft" {
   lifecycle {
     ignore_changes = [
@@ -144,17 +140,13 @@ resource "aws_instance" "minecraft" {
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/mcserver.yml.tpl", {
     minecraft_volume_id = aws_ebs_volume.minecraft.id
-    private_key         = tls_private_key.minecraft.private_key_pem
-    public_key          = tls_private_key.minecraft.public_key_pem
+    host_private_key    = tls_private_key.host_key.private_key_pem
+    host_public_key     = tls_private_key.host_key.public_key_pem
   })
 }
 
 output "instance_id" {
   value = aws_instance.minecraft.id
-}
-
-output "domains" {
-  value = var.domains
 }
 
 output "private_ip" {
