@@ -154,6 +154,10 @@ resource "aws_eip" "public" {
   network_interface = aws_network_interface.public.id
 }
 
+locals {
+  main_private_ip = "10.0.0.4"
+}
+
 resource "aws_network_interface" "public" {
   subnet_id       = aws_subnet.public.id
   security_groups = [aws_security_group.main.id]
@@ -163,8 +167,29 @@ resource "aws_network_interface" "public" {
 resource "aws_network_interface" "private" {
   subnet_id         = aws_subnet.private.id
   security_groups   = [aws_security_group.main.id]
-  private_ips       = ["10.0.0.4"]
+  private_ips       = [local.main_private_ip]
   source_dest_check = false
+}
+
+resource "aws_ebs_volume" "main" {
+  availability_zone = "ap-southeast-2b"
+  size              = 150
+  final_snapshot    = true
+  type              = "sc1"
+
+  tags = {
+    Name = "main storage"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_volume_attachment" "minecraft" {
+  device_name = "/dev/xvdf"
+  volume_id   = aws_ebs_volume.main.id
+  instance_id = aws_instance.main.id
 }
 
 resource "aws_instance" "main" {
@@ -190,10 +215,12 @@ resource "aws_instance" "main" {
 
   user_data_replace_on_change = true
   user_data = templatefile("main.yml.tpl", {
-    domain_name  = "lenqua.link"
-    private_cidr = aws_subnet.private.cidr_block
-    private_key  = tls_private_key.static_key.private_key_pem
-    public_key   = tls_private_key.static_key.public_key_pem
+    domain_name    = "lenqua.link"
+    main_volume_id = aws_ebs_volume.main.id
+    private_cidr   = aws_subnet.private.cidr_block
+    private_key    = tls_private_key.static_key.private_key_pem
+    public_key     = tls_private_key.static_key.public_key_pem
+    vpc_cidr       = aws_vpc.vpc.cidr_block
     nginx_configs = yamlencode([for file in fileset("nginx", "*.conf") : {
       path    = "/etc/nginx/conf.d/${file}"
       content = templatefile("nginx/${file}", {})

@@ -17,6 +17,7 @@ packages:
   - git
   - git-lfs
   - libwebp-tools
+  - nfs-utils
 
 ssh_keys:
   rsa_private: |
@@ -29,24 +30,38 @@ write_files:
     content: |
       [Unit]
       Description=Minecraft Server
-      After=network.target opt-minecraft.mount
+      After=network.target mnt-minecraft.mount mnt-main.mount
+      Requires=mnt-minecraft.mount mnt-main.mount
       [Install]
       WantedBy=multi-user.target
       [Service]
+      User=ec2-user
+      Group=ec2-user
       Restart=always
-      WorkingDirectory=/opt/minecraft
-      ExecStart=/usr/bin/screen -DmS minecraft /opt/minecraft/start.sh
+      WorkingDirectory=/mnt/minecraft/server
+      ExecStart=/usr/bin/screen -DmS minecraft /mnt/minecraft/server/start.sh
       ExecStop=/usr/bin/screen -p 0 -S minecraft -X eval 'stuff \"stop\"\015'
       ExecStop=/bin/bash -c "while ps -p $MAINPID > /dev/null; do /bin/sleep 1; done"
 
-  - path: /etc/systemd/system/opt-minecraft.mount
+  - path: /etc/systemd/system/mnt-minecraft.mount
     content: |
       [Unit]
       Description=Mount minecraft partition
       [Mount]
       What=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
-      Where=/opt/minecraft
+      Where=/mnt/minecraft
+      Owner=ec2-user
       Options=defaults,noatime
+
+  - path: /etc/systemd/system/mnt-main.mount
+    content: |
+      [Unit]
+      Description=Mount website directory for dynmap
+      [Mount]
+      What=${main_nfs_ip}:/mnt/main
+      Where=/mnt/main
+      Type=nfs
+      Options=rw
 
 runcmd:
   - systemctl daemon-reload

@@ -8,15 +8,15 @@ variable "vpc_id" {
   type = string
 }
 
+variable "main_nfs_ip" {
+  type = string
+}
+
 variable "private_ip" {
   type = string
 }
 
 variable "subnet_id" {
-  type = string
-}
-
-variable "ec2_iam_policy" {
   type = string
 }
 
@@ -79,40 +79,6 @@ data "aws_ami" "minecraft" {
   }
 }
 
-data "aws_iam_policy_document" "assume_role" {
-  statement {
-    effect = "Allow"
-
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-resource "aws_iam_policy" "minecraft" {
-  name   = "minecraft_${var.name}"
-  policy = var.ec2_iam_policy
-}
-
-resource "aws_iam_policy_attachment" "minecraft" {
-  name       = "minecraft_${var.name}"
-  roles      = [aws_iam_role.minecraft.name]
-  policy_arn = aws_iam_policy.minecraft.arn
-}
-
-resource "aws_iam_role" "minecraft" {
-  name               = "minecraft_${var.name}"
-  assume_role_policy = data.aws_iam_policy_document.assume_role.json
-}
-
-resource "aws_iam_instance_profile" "minecraft" {
-  name = "minecraft_${var.name}"
-  role = aws_iam_role.minecraft.name
-}
-
 resource "tls_private_key" "host_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -131,7 +97,6 @@ resource "aws_instance" "minecraft" {
   subnet_id              = var.subnet_id
   private_ip             = var.private_ip
   key_name               = var.ssh_key_name
-  iam_instance_profile   = aws_iam_instance_profile.minecraft.name
 
   tags = {
     Name = "Minecraft ${var.name}"
@@ -139,6 +104,8 @@ resource "aws_instance" "minecraft" {
 
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/mcserver.yml.tpl", {
+    name                = var.name
+    main_nfs_ip         = var.main_nfs_ip
     minecraft_volume_id = aws_ebs_volume.minecraft.id
     host_private_key    = tls_private_key.host_key.private_key_pem
     host_public_key     = tls_private_key.host_key.public_key_pem
