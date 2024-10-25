@@ -8,6 +8,10 @@ fs_setup:
   - device: /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
     filesystem: ext4
 
+swap:
+  filename: /swapfile
+  size: 2000000000
+
 packages:
   - java
   - git
