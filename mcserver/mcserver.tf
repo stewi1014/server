@@ -107,7 +107,7 @@ resource "aws_instance" "minecraft" {
   user_data = templatefile("${path.module}/mcserver.yml.tpl", {
     name                = var.name
     data_nfs_ip         = var.data_nfs_ip
-    minecraft_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}"
+    minecraft_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(aws_ebs_volume.minecraft.id, "vol-")}"
     host_private_key    = tls_private_key.host_key.private_key_pem
     host_public_key     = tls_private_key.host_key.public_key_pem
   })

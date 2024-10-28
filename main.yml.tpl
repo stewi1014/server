@@ -5,8 +5,11 @@ fqdn: ${domain_name}
 
 bootcmd:
   - while [ ! -e ${data_block_dev} ]; do sleep 1; done
+  - while [ ! -e ${web_data_block_dev} ]; do sleep 1; done
 fs_setup:
   - device: ${data_block_dev}
+    filesystem: ext4
+  - device: ${web_data_block_dev}
     filesystem: ext4
 
 write_files:
@@ -46,6 +49,16 @@ write_files:
       Type=ext4
       TimeoutSec=1800
 
+  - path: /etc/systemd/system/mnt-data.mount
+    content: |
+      [Unit]
+      Description=Mount web storage
+      [Install]
+      WantedBy=multi-user.target
+      [Mount]
+      What=${web_data_block_dev}
+      Where=/var/www/html
+
   - path: /etc/exports.d/data.exports
     content: |
       /mnt/data/minecraft/vanilla/tiles ${vpc_cidr}(rw,async)
@@ -59,8 +72,14 @@ write_files:
       listen.owner = nginx
       listen.group = nginx
       pm = ondemand
-      pm.max_children = 4
+      pm.max_children = 40
       user = ec2-user
+
+  - path: /etc/letsencrypt/cli.ini
+    contents: |
+      preconfigured-renewal = True
+      max-log-backups = 0
+      config-dir = /mnt/data/letsencrypt
 
   ${indent(2, nginx_configs)}
 
@@ -88,7 +107,13 @@ runcmd:
   - chown ec2-user:ec2-user /var/www/html/minecraft/vanilla
   - systemctl enable --now nfs-server
   - systemctl enable --now nftables
-  - certbot --nginx -d vanilla.lenqua.link -d map.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
+  - certbot --nginx\
+    -d vanilla.lenqua.link \
+    -d lenqua.link \
+    -d map.scarzone.online \
+    --non-interactive \
+    --agree-tos \
+    -m stewi1014@gmail.com
   - systemctl enable --now php-fpm
   - systemctl enable --now nginx
   - systemctl enable --now certbot-renew.timer

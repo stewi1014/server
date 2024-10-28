@@ -192,6 +192,27 @@ resource "aws_volume_attachment" "data" {
   instance_id = aws_instance.main.id
 }
 
+resource "aws_ebs_volume" "web_data" {
+  availability_zone = "ap-southeast-2b"
+  size              = 2
+  final_snapshot    = true
+  type              = "gp3"
+
+  tags = {
+    Name = "web data"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_volume_attachment" "web_data" {
+  device_name = "/dev/xvdf"
+  volume_id   = aws_ebs_volume.web_data.id
+  instance_id = aws_instance.web_data.id
+}
+
 resource "aws_instance" "main" {
   instance_type        = "t4g.nano"
   ami                  = data.aws_ami.arm.id
@@ -215,13 +236,14 @@ resource "aws_instance" "main" {
 
   user_data_replace_on_change = true
   user_data = templatefile("main.yml.tpl", {
-    domain_name    = "lenqua.link"
-    data_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(data_volume_id, "vol-")}"
-    data_volume_id = aws_ebs_volume.data.id
-    private_cidr   = aws_subnet.private.cidr_block
-    private_key    = tls_private_key.static_key.private_key_pem
-    public_key     = tls_private_key.static_key.public_key_pem
-    vpc_cidr       = aws_vpc.vpc.cidr_block
+    domain_name        = "lenqua.link"
+    data_block_dev     = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(aws_ebs_volume.data.id, "vol-")}"
+    web_data_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(aws_ebs_volume.web_data.id, "vol-")}"
+    data_volume_id     = aws_ebs_volume.data.id
+    private_cidr       = aws_subnet.private.cidr_block
+    private_key        = tls_private_key.static_key.private_key_pem
+    public_key         = tls_private_key.static_key.public_key_pem
+    vpc_cidr           = aws_vpc.vpc.cidr_block
     nginx_configs = yamlencode([for file in fileset("nginx", "*.conf") : {
       path    = "/etc/nginx/conf.d/${file}"
       content = templatefile("nginx/${file}", {})
