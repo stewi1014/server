@@ -3,9 +3,9 @@
 hostname: minecraft
 
 bootcmd:
-  - while [ ! -e /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")} ]; do sleep 1; done
+  - while [ ! -e ${minecraft_block_dev} ]; do sleep 1; done
 fs_setup:
-  - device: /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
+  - device: ${minecraft_block_dev}
     filesystem: ext4
 
 swap:
@@ -30,8 +30,8 @@ write_files:
     content: |
       [Unit]
       Description=Minecraft Server
-      After=network.target mnt-minecraft.mount mnt-main.mount
-      Requires=mnt-minecraft.mount mnt-main.mount
+      After=network.target mnt-minecraft.mount mnt-minecraft-server-dynmap-web.mount mnt-minecraft-server-dynmap-web-tiles.mount mnt-backups.mount
+      Requires=mnt-minecraft.mount mnt-minecraft-server-dynmap-web.mount mnt-minecraft-server-dynmap-web-tiles.mount mnt-backups.mount
       [Install]
       WantedBy=multi-user.target
       [Service]
@@ -48,18 +48,38 @@ write_files:
       [Unit]
       Description=Mount minecraft partition
       [Mount]
-      What=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}
+      What=${minecraft_block_dev}
       Where=/mnt/minecraft
-      Owner=ec2-user
-      Options=defaults,noatime
 
-  - path: /etc/systemd/system/mnt-main.mount
+  - path: /etc/systemd/system/mnt-minecraft-server-dynmap-web.mount
     content: |
       [Unit]
-      Description=Mount website directory for dynmap
+      Description=Mount dynmap web storage
+      Requires=mnt-minecraft.mount
       [Mount]
-      What=${main_nfs_ip}:/mnt/main
-      Where=/mnt/main
+      What=${data_nfs_ip}:/var/www/html/minecraft/${name}
+      Where=/mnt/minecraft/server/dynmap/web
+      Type=nfs
+      Options=rw
+
+  - path: /etc/systemd/system/mnt-minecraft-server-dynmap-web-tiles.mount
+    content: |
+      [Unit]
+      Description=Mount dynmap tile storage
+      Requires=mnt-minecraft-server-dynmap-web.mount
+      [Mount]
+      What=${data_nfs_ip}:/mnt/data/minecraft/${name}/tiles
+      Where=/mnt/minecraft/server/dynmap/web/tiles
+      Type=nfs
+      Options=rw
+
+  - path: /etc/systemd/system/mnt-backups.mount
+    content: |
+      [Unit]
+      Description=Mount backup storage
+      [Mount]
+      What=${data_nfs_ip}:/mnt/data/minecraft/${name}/backups
+      Where=/mnt/backups
       Type=nfs
       Options=rw
 

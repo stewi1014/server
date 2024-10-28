@@ -8,7 +8,7 @@ variable "vpc_id" {
   type = string
 }
 
-variable "main_nfs_ip" {
+variable "data_nfs_ip" {
   type = string
 }
 
@@ -26,8 +26,9 @@ variable "ssh_key_name" {
 
 resource "aws_ebs_volume" "minecraft" {
   availability_zone = "ap-southeast-2b"
-  size              = 20
+  size              = 25
   final_snapshot    = true
+  type              = "gp3"
 
   tags = {
     Name = var.name
@@ -105,8 +106,8 @@ resource "aws_instance" "minecraft" {
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/mcserver.yml.tpl", {
     name                = var.name
-    main_nfs_ip         = var.main_nfs_ip
-    minecraft_volume_id = aws_ebs_volume.minecraft.id
+    data_nfs_ip         = var.data_nfs_ip
+    minecraft_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(minecraft_volume_id, "vol-")}"
     host_private_key    = tls_private_key.host_key.private_key_pem
     host_public_key     = tls_private_key.host_key.public_key_pem
   })

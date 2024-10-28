@@ -171,14 +171,14 @@ resource "aws_network_interface" "private" {
   source_dest_check = false
 }
 
-resource "aws_ebs_volume" "main" {
+resource "aws_ebs_volume" "data" {
   availability_zone = "ap-southeast-2b"
   size              = 150
   final_snapshot    = true
   type              = "sc1"
 
   tags = {
-    Name = "main storage"
+    Name = "data storage"
   }
 
   lifecycle {
@@ -186,9 +186,9 @@ resource "aws_ebs_volume" "main" {
   }
 }
 
-resource "aws_volume_attachment" "minecraft" {
+resource "aws_volume_attachment" "data" {
   device_name = "/dev/xvdf"
-  volume_id   = aws_ebs_volume.main.id
+  volume_id   = aws_ebs_volume.data.id
   instance_id = aws_instance.main.id
 }
 
@@ -216,7 +216,8 @@ resource "aws_instance" "main" {
   user_data_replace_on_change = true
   user_data = templatefile("main.yml.tpl", {
     domain_name    = "lenqua.link"
-    main_volume_id = aws_ebs_volume.main.id
+    data_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(data_volume_id, "vol-")}"
+    data_volume_id = aws_ebs_volume.data.id
     private_cidr   = aws_subnet.private.cidr_block
     private_key    = tls_private_key.static_key.private_key_pem
     public_key     = tls_private_key.static_key.public_key_pem

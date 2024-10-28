@@ -4,9 +4,9 @@ hostname: lenqua
 fqdn: ${domain_name}
 
 bootcmd:
-  - while [ ! -e /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(main_volume_id, "vol-")} ]; do sleep 1; done
+  - while [ ! -e ${data_block_dev} ]; do sleep 1; done
 fs_setup:
-  - device: /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(main_volume_id, "vol-")}
+  - device: ${data_block_dev}
     filesystem: ext4
 
 write_files:
@@ -34,20 +34,33 @@ write_files:
         }
       }
 
-  - path: /etc/systemd/system/mnt-main.mount
+  - path: /etc/systemd/system/mnt-data.mount
     content: |
       [Unit]
       Description=Mount main storage
       [Install]
       WantedBy=multi-user.target
       [Mount]
-      What=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(main_volume_id, "vol-")}
-      Where=/mnt/main
-      Options=defaults,noatime
+      What=${data_block_dev}
+      Where=/mnt/data
+      Type=ext4
+      TimeoutSec=1800
 
-  - path: /etc/exports.d/main_storage.exports
+  - path: /etc/exports.d/data.exports
     content: |
-      /mnt/main ${vpc_cidr}(rw,sync,no_subtree_check)
+      /mnt/data/minecraft/vanilla/tiles ${vpc_cidr}(rw,async)
+      /mnt/data/minecraft/vanilla/backups ${vpc_cidr}(rw,sync)
+      /var/www/html/minecraft/vanilla ${vpc_cidr}(rw,sync)
+
+  - path: /etc/php-fpm.d/www.conf
+    content: |
+      [www]
+      listen = /var/run/php-fpm/php-fpm.sock
+      listen.owner = nginx
+      listen.group = nginx
+      pm = ondemand
+      pm.max_children = 4
+      user = ec2-user
 
   ${indent(2, nginx_configs)}
 
@@ -57,6 +70,7 @@ packages:
   - python3-certbot-nginx
   - nginx
   - nfs-utils
+  - php-fpm
 
 ssh_keys:
   rsa_private: |
@@ -70,8 +84,11 @@ runcmd:
   - wget https://github.com/stewi1014/mcproxy/releases/download/v1.3/mcproxy_arm64 -O /opt/mcproxy/mcproxy
   - chmod +x /opt/mcproxy/mcproxy
   - systemctl daemon-reload
+  - mkdir -p /var/www/html/minecraft/vanilla
+  - chown ec2-user:ec2-user /var/www/html/minecraft/vanilla
   - systemctl enable --now nfs-server
   - systemctl enable --now nftables
   - certbot --nginx -d vanilla.lenqua.link -d map.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
+  - systemctl enable --now php-fpm
   - systemctl enable --now nginx
   - systemctl enable --now certbot-renew.timer
