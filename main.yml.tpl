@@ -28,15 +28,6 @@ write_files:
     content: |
       net.ipv4.ip_forward = 1
 
-  - path: /etc/sysconfig/nftables.conf
-    content: |
-      table ip nat {
-        chain postrouting {
-          type nat hook postrouting priority 100; policy accept;
-          ip saddr 10.0.0.0/16 oifname ens5 masquerade;
-        }
-      }
-
   - path: /etc/systemd/system/mnt-data.mount
     content: |
       [Unit]
@@ -49,7 +40,7 @@ write_files:
       Type=ext4
       TimeoutSec=1800
 
-  - path: /etc/systemd/system/mnt-data.mount
+  - path: /etc/systemd/system/var-www-html.mount
     content: |
       [Unit]
       Description=Mount web storage
@@ -58,12 +49,6 @@ write_files:
       [Mount]
       What=${web_data_block_dev}
       Where=/var/www/html
-
-  - path: /etc/exports.d/data.exports
-    content: |
-      /mnt/data/minecraft/vanilla/tiles ${vpc_cidr}(rw,async)
-      /mnt/data/minecraft/vanilla/backups ${vpc_cidr}(rw,sync)
-      /var/www/html/minecraft/vanilla ${vpc_cidr}(rw,sync)
 
   - path: /etc/php-fpm.d/www.conf
     content: |
@@ -76,20 +61,28 @@ write_files:
       user = ec2-user
 
   - path: /etc/letsencrypt/cli.ini
-    contents: |
+    content: |
       preconfigured-renewal = True
       max-log-backups = 0
       config-dir = /mnt/data/letsencrypt
 
-  ${indent(2, nginx_configs)}
+  - path: /etc/systemd/system/postgresql.service.d/override.conf
+    content: |
+      [Unit]
+      Requires=mnt-data.mount
+      [Service]
+      Environment=PGDATA=/mnt/data/postgres
 
 packages:
   - nftables
-  - certbot 
+  - certbot
   - python3-certbot-nginx
   - nginx
   - nfs-utils
-  - php-fpm
+  - php8.3-fpm
+  - php8.3-pdo
+  - php8.3-pgsql
+  - postgresql16-server
 
 ssh_keys:
   rsa_private: |
@@ -105,15 +98,7 @@ runcmd:
   - systemctl daemon-reload
   - mkdir -p /var/www/html/minecraft/vanilla
   - chown ec2-user:ec2-user /var/www/html/minecraft/vanilla
-  - systemctl enable --now nfs-server
-  - systemctl enable --now nftables
-  - certbot --nginx\
-    -d vanilla.lenqua.link \
-    -d lenqua.link \
-    -d map.scarzone.online \
-    --non-interactive \
-    --agree-tos \
-    -m stewi1014@gmail.com
+  - certbot --nginx -d vanilla.lenqua.link -d lenqua.link -d map.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
   - systemctl enable --now php-fpm
-  - systemctl enable --now nginx
   - systemctl enable --now certbot-renew.timer
+  - systemctl enable --now postgresql

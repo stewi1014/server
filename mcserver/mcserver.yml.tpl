@@ -30,8 +30,8 @@ write_files:
     content: |
       [Unit]
       Description=Minecraft Server
-      After=network.target mnt-minecraft.mount mnt-minecraft-server-dynmap-web.mount mnt-minecraft-server-dynmap-web-tiles.mount mnt-backups.mount
-      Requires=mnt-minecraft.mount mnt-minecraft-server-dynmap-web.mount mnt-minecraft-server-dynmap-web-tiles.mount mnt-backups.mount
+      After=network.target mnt-minecraft.mount mnt-minecraft-server-dynmap-web.mount mnt-backups.mount
+      Requires=mnt-minecraft.mount mnt-minecraft-server-dynmap-web.mount mnt-backups.mount
       [Install]
       WantedBy=multi-user.target
       [Service]
@@ -59,17 +59,6 @@ write_files:
       [Mount]
       What=${data_nfs_ip}:/var/www/html/minecraft/${name}
       Where=/mnt/minecraft/server/dynmap/web
-      Type=nfs
-      Options=rw
-
-  - path: /etc/systemd/system/mnt-minecraft-server-dynmap-web-tiles.mount
-    content: |
-      [Unit]
-      Description=Mount dynmap tile storage
-      Requires=mnt-minecraft-server-dynmap-web.mount
-      [Mount]
-      What=${data_nfs_ip}:/mnt/data/minecraft/${name}/tiles
-      Where=/mnt/minecraft/server/dynmap/web/tiles
       Type=nfs
       Options=rw
 

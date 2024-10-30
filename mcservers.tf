@@ -2,6 +2,8 @@
 module "vanilla" {
   source = "./mcserver"
 
+  depends_on = [module.nfs_config]
+
   name         = "vanilla"
   vpc_id       = aws_vpc.vpc.id
   private_ip   = "10.0.0.5"

@@ -18,25 +18,27 @@ variable "config_contents" {
   type = string
 }
 
-resource "terraform_data" "mcproxyconfig" {
+resource "terraform_data" "config" {
   triggers_replace = [var.config_contents, var.instance_id]
+
 
   connection {
     host        = var.public_ip
     user        = "ec2-user"
     private_key = file("~/.ssh/id_rsa")
   }
-  provisioner "remote-exec" {
-    inline = [
-      "cloud-init status --wait",
-      "sudo mkdir -p $(dirname ${var.config_path})"
-    ]
-  }
   provisioner "file" {
     content     = var.config_contents
-    destination = var.config_path
+    destination = "/tmp/${replace(var.config_path, "/", "_")}"
   }
   provisioner "remote-exec" {
-    inline = ["sudo systemctl restart ${var.service_name}"]
+    inline = [
+      "sudo cloud-init status --wait",
+      "sudo mkdir -p $(dirname \"${var.config_path}\")",
+      "sudo mv \"/tmp/${replace(var.config_path, "/", "_")}\" \"${var.config_path}\"",
+      "sudo chown root:root \"${var.config_path}\"",
+      "sudo systemctl enable ${var.service_name}",
+      "sudo systemctl restart ${var.service_name}"
+    ]
   }
 }
