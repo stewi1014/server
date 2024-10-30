@@ -187,7 +187,7 @@ resource "aws_ebs_volume" "data" {
 }
 
 resource "aws_volume_attachment" "data" {
-  device_name = "/dev/xvdf"
+  device_name = "/dev/xvdb"
   volume_id   = aws_ebs_volume.data.id
   instance_id = aws_instance.main.id
 }
@@ -208,9 +208,30 @@ resource "aws_ebs_volume" "web_data" {
 }
 
 resource "aws_volume_attachment" "web_data" {
-  device_name = "/dev/xvdf"
+  device_name = "/dev/xvdc"
   volume_id   = aws_ebs_volume.web_data.id
-  instance_id = aws_instance.web_data.id
+  instance_id = aws_instance.main.id
+}
+
+resource "aws_ebs_volume" "database" {
+  availability_zone = "ap-southeast-2b"
+  size              = 35
+  final_snapshot    = true
+  type              = "gp3"
+
+  tags = {
+    Name = "database"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_volume_attachment" "database" {
+  device_name = "/dev/xvdd"
+  volume_id   = aws_ebs_volume.database.id
+  instance_id = aws_instance.main.id
 }
 
 resource "aws_instance" "main" {
@@ -239,20 +260,63 @@ resource "aws_instance" "main" {
     domain_name        = "lenqua.link"
     data_block_dev     = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(aws_ebs_volume.data.id, "vol-")}"
     web_data_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(aws_ebs_volume.web_data.id, "vol-")}"
+    database_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(aws_ebs_volume.database.id, "vol-")}"
     data_volume_id     = aws_ebs_volume.data.id
     private_cidr       = aws_subnet.private.cidr_block
     private_key        = tls_private_key.static_key.private_key_pem
     public_key         = tls_private_key.static_key.public_key_pem
     vpc_cidr           = aws_vpc.vpc.cidr_block
-    nginx_configs = yamlencode([for file in fileset("nginx", "*.conf") : {
-      path    = "/etc/nginx/conf.d/${file}"
-      content = templatefile("nginx/${file}", {})
-    }])
   })
 }
 
+module "nginx_config" {
+  source     = "./service_config"
+  depends_on = [aws_volume_attachment.data, aws_volume_attachment.web_data]
+  for_each   = fileset("nginx", "*.conf")
+
+  service_name    = "nginx"
+  public_ip       = aws_instance.main.public_ip
+  instance_id     = aws_instance.main.id
+  config_path     = "/etc/nginx/conf.d/${each.value}"
+  config_contents = file("nginx/${each.value}")
+  post_start      = ["flock /var/tmp/terraform-certbot.lock sudo certbot --nginx -d ${trimsuffix(each.value, ".conf")} --non-interactive --agree-tos -m stewi1014@gmail.com"]
+}
+
+module "nfs_config" {
+  source     = "./service_config"
+  depends_on = [aws_volume_attachment.data, aws_volume_attachment.web_data]
+
+  service_name    = "nfs-server"
+  config_path     = "/etc/exports.d/data.exports"
+  public_ip       = aws_instance.main.public_ip
+  instance_id     = aws_instance.main.id
+  config_contents = <<EOF
+    /mnt/data/minecraft/vanilla/backups ${aws_vpc.vpc.cidr_block}(rw,sync)
+    /var/www/html/minecraft/vanilla ${aws_vpc.vpc.cidr_block}(rw,sync)
+  EOF
+}
+
+module "nftables_config" {
+  source     = "./service_config"
+  depends_on = [aws_volume_attachment.data, aws_volume_attachment.web_data]
+
+  service_name    = "nftables"
+  config_path     = "/etc/sysconfig/nftables.conf"
+  public_ip       = aws_instance.main.public_ip
+  instance_id     = aws_instance.main.id
+  config_contents = <<EOF
+    table ip nat {
+      chain postrouting {
+        type nat hook postrouting priority 100; policy accept;
+        ip saddr 10.0.0.0/16 oifname ens5 masquerade;
+      }
+    }
+  EOF
+}
+
 module "mcproxy_config" {
-  source = "./service_config"
+  source     = "./service_config"
+  depends_on = [aws_volume_attachment.data, aws_volume_attachment.web_data]
 
   service_name = "mcproxy"
   instance_id  = aws_instance.main.id

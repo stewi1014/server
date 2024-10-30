@@ -4,6 +4,10 @@ variable "name" {
   type = string
 }
 
+variable "volume_size" {
+  type = number
+}
+
 variable "vpc_id" {
   type = string
 }
@@ -26,7 +30,7 @@ variable "ssh_key_name" {
 
 resource "aws_ebs_volume" "minecraft" {
   availability_zone = "ap-southeast-2b"
-  size              = 25
+  size              = var.volume_size
   final_snapshot    = true
   type              = "gp3"
 
