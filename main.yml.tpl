@@ -83,6 +83,7 @@ packages:
   - php8.3-pdo
   - php8.3-pgsql
   - postgresql16-server
+  - openvpn
 
 ssh_keys:
   rsa_private: |
@@ -98,7 +99,8 @@ runcmd:
   - systemctl daemon-reload
   - mkdir -p /var/www/html/minecraft/vanilla
   - chown ec2-user:ec2-user /var/www/html/minecraft/vanilla
-  - certbot --nginx -d vanilla.lenqua.link -d lenqua.link -d map.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
+  - certbot --nginx -d lenqua.link -d vanilla.lenqua.link -d map.scarzone.online --non-interactive --agree-tos -m stewi1014@gmail.com
   - systemctl enable --now php-fpm
   - systemctl enable --now certbot-renew.timer
   - systemctl enable --now postgresql
+  - systemctl enable --now openvpn
