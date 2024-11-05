@@ -75,7 +75,7 @@ data "aws_ami" "minecraft" {
 
   filter {
     name   = "architecture"
-    values = ["x86_64"]
+    values = ["arm64"]
   }
 
   filter {
@@ -97,7 +97,7 @@ resource "aws_instance" "minecraft" {
   }
 
   ami                    = data.aws_ami.minecraft.id
-  instance_type          = "m6i.large"
+  instance_type          = "t4g.medium"
   vpc_security_group_ids = [aws_security_group.minecraft.id]
   subnet_id              = var.subnet_id
   private_ip             = var.private_ip

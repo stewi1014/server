@@ -334,7 +334,7 @@ module "mcproxy_config" {
       destination_port     = 25565
       destination_version  = "1.21.1"
       destination_protocol = 767
-      shutdown_timeout     = 900
+      shutdown_timeout     = 300
       ec2_server = {
         region      = "ap-southeast-2"
         instance_id = module.vanilla.instance_id
