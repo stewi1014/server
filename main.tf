@@ -215,7 +215,7 @@ resource "aws_volume_attachment" "web_data" {
 
 resource "aws_ebs_volume" "database" {
   availability_zone = "ap-southeast-2b"
-  size              = 35
+  size              = 30
   final_snapshot    = true
   type              = "gp3"
 
@@ -235,6 +235,10 @@ resource "aws_volume_attachment" "database" {
 }
 
 resource "aws_instance" "main" {
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   instance_type        = "t4g.nano"
   ami                  = data.aws_ami.arm.id
   availability_zone    = "ap-southeast-2b"
@@ -292,7 +296,6 @@ module "nfs_config" {
   instance_id     = aws_instance.main.id
   config_contents = <<EOF
     /mnt/data/minecraft/vanilla/backups ${aws_vpc.vpc.cidr_block}(rw,sync)
-    /var/www/html/minecraft/vanilla ${aws_vpc.vpc.cidr_block}(rw,sync)
   EOF
 }
 

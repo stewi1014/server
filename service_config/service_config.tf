@@ -32,26 +32,36 @@ variable "post_start" {
 
 resource "terraform_data" "config" {
   triggers_replace = [var.config_contents, var.instance_id]
+  input = {
+    public_ip   = var.public_ip
+    config_path = var.config_path
+  }
 
   connection {
-    host        = var.public_ip
+    host        = self.input.public_ip
     user        = "ec2-user"
     private_key = file("~/.ssh/id_rsa")
   }
   provisioner "file" {
     content     = var.config_contents
-    destination = "/tmp/${replace(var.config_path, "/", "_")}"
+    destination = "/tmp/${replace(self.input.config_path, "/", "_")}"
   }
   provisioner "remote-exec" {
     inline = flatten([
       "sudo cloud-init status --wait",
-      "sudo mkdir -p $(dirname \"${var.config_path}\")",
-      "sudo mv \"/tmp/${replace(var.config_path, "/", "_")}\" \"${var.config_path}\"",
-      "sudo chown root:root \"${var.config_path}\"",
+      "sudo mkdir -p $(dirname \"${self.input.config_path}\")",
+      "sudo mv \"/tmp/${replace(self.input.config_path, "/", "_")}\" \"${self.input.config_path}\"",
+      "sudo chown root:root \"${self.input.config_path}\"",
       var.pre_start,
       "sudo systemctl enable ${var.service_name}",
       "sudo systemctl restart ${var.service_name}",
       var.post_start
     ])
+  }
+  provisioner "remote-exec" {
+    when = destroy
+    inline = [
+      "sudo rm \"${self.input.config_path}\""
+    ]
   }
 }
