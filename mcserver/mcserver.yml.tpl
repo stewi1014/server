@@ -26,12 +26,24 @@ ssh_keys:
     ${indent(4, host_public_key)}
 
 write_files:
+  - path: /home/ec2-user/.ssh/id_rsa
+    content: |
+      ${indent(6, user_private_key)}
+
+  - path: /home/ec2-user/.ssh/id_rsa.pub
+    content: |
+      ${indent(6, user_public_key)}
+
+  - path: /home/ec2-user/.ssh/known_hosts
+    content: |
+      ${indent(6, known_hosts)}
+
   - path: /etc/systemd/system/minecraft.service
     content: |
       [Unit]
       Description=Minecraft Server
-      After=network.target mnt-minecraft.mount mnt-backups.mount
-      Requires=mnt-minecraft.mount mnt-backups.mount
+      After=network.target mnt-minecraft.mount
+      Requires=mnt-minecraft.mount
       [Install]
       WantedBy=multi-user.target
       [Service]
@@ -50,16 +62,6 @@ write_files:
       [Mount]
       What=${minecraft_block_dev}
       Where=/mnt/minecraft
-
-  - path: /etc/systemd/system/mnt-backups.mount
-    content: |
-      [Unit]
-      Description=Mount backup storage
-      [Mount]
-      What=${data_nfs_ip}:/mnt/data/minecraft/${name}/backups
-      Where=/mnt/backups
-      Type=nfs
-      Options=rw
 
 runcmd:
   - systemctl daemon-reload

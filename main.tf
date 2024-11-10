@@ -140,6 +140,14 @@ resource "aws_security_group" "main" {
     cidr_blocks = ["10.0.0.0/16"]
   }
 
+  ingress {
+    protocol         = "icmp"
+    from_port        = 8
+    to_port          = 0
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/1"]
+  }
+
   egress {
     from_port        = 0
     to_port          = 0
@@ -284,19 +292,6 @@ module "nginx_config" {
   config_path     = "/etc/nginx/conf.d/${each.value}"
   config_contents = file("nginx/${each.value}")
   post_start      = ["flock /var/tmp/terraform-certbot.lock sudo certbot --nginx -d ${trimsuffix(each.value, ".conf")} --non-interactive --agree-tos -m stewi1014@gmail.com"]
-}
-
-module "nfs_config" {
-  source     = "./service_config"
-  depends_on = [aws_volume_attachment.data, aws_volume_attachment.web_data]
-
-  service_name    = "nfs-server"
-  config_path     = "/etc/exports.d/data.exports"
-  public_ip       = aws_instance.main.public_ip
-  instance_id     = aws_instance.main.id
-  config_contents = <<EOF
-    /mnt/data/minecraft/vanilla/backups ${aws_vpc.vpc.cidr_block}(rw,sync)
-  EOF
 }
 
 module "nftables_config" {

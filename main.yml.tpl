@@ -87,12 +87,28 @@ write_files:
       Requires=var-www-html.mount mnt-data.mount
       After=var-www-html.mount mnt-data.mount
 
+  - path: /etc/systemd/system/gitea.service
+    content: |
+      [Unit]
+      Description=Run Gitea
+      Requires=mnt-data.mount postgresql.service
+      After=mnt-data.mount postgresql.service
+      [Install]
+      WantedBy=multi-user.target
+      [Service]
+      User=git
+      Group=git
+      Environment="GITEA_WORK_DIR=/mnt/data/gitea"
+      ExecStart=/usr/local/bin/gitea
+      WorkingDirectory=/mnt/data/gitea
+
 packages:
+  - git
+  - git-lfs
   - nftables
   - certbot
   - python3-certbot-nginx
   - nginx
-  - nfs-utils
   - php8.3-fpm
   - php8.3-pdo
   - php8.3-pgsql
@@ -103,6 +119,10 @@ ssh_keys:
     ${indent(4, private_key)}
   rsa_public: |
     ${indent(4, public_key)}
+
+users:
+  - default
+  - name: git
 
 runcmd:
   - sysctl -w net.ipv4.ip_forward=1
@@ -115,3 +135,8 @@ runcmd:
   - systemctl enable --now php-fpm
   - systemctl enable --now certbot-renew.timer
   - systemctl enable --now postgresql
+
+  # Install gitea
+  - wget -O /usr/local/bin/gitea https://dl.gitea.com/gitea/1.22.3/gitea-1.22.3-linux-arm64
+  - chmod +x /usr/local/bin/gitea
+  - systemctl enable --now gitea

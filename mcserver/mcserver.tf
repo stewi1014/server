@@ -12,10 +12,6 @@ variable "vpc_id" {
   type = string
 }
 
-variable "data_nfs_ip" {
-  type = string
-}
-
 variable "private_ip" {
   type = string
 }
@@ -25,6 +21,10 @@ variable "subnet_id" {
 }
 
 variable "ssh_key_name" {
+  type = string
+}
+
+variable "known_hosts" {
   type = string
 }
 
@@ -89,6 +89,11 @@ resource "tls_private_key" "host_key" {
   rsa_bits  = 4096
 }
 
+resource "tls_private_key" "user_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
 resource "aws_instance" "minecraft" {
   lifecycle {
     ignore_changes = [
@@ -114,10 +119,12 @@ resource "aws_instance" "minecraft" {
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/mcserver.yml.tpl", {
     name                = var.name
-    data_nfs_ip         = var.data_nfs_ip
     minecraft_block_dev = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol${trimprefix(aws_ebs_volume.minecraft.id, "vol-")}"
+    known_hosts         = var.known_hosts
     host_private_key    = tls_private_key.host_key.private_key_pem
     host_public_key     = tls_private_key.host_key.public_key_pem
+    user_private_key    = tls_private_key.user_key.private_key_pem
+    user_public_key     = tls_private_key.user_key.public_key_pem
   })
 }
 
@@ -127,4 +134,8 @@ output "instance_id" {
 
 output "private_ip" {
   value = aws_instance.minecraft.private_ip
+}
+
+output "public_ssh_key" {
+  value = tls_private_key.user_key.public_key_openssh
 }
