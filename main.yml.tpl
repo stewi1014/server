@@ -127,7 +127,7 @@ users:
 runcmd:
   - sysctl -w net.ipv4.ip_forward=1
   - mkdir -m 777 /opt/mcproxy
-  - wget https://github.com/stewi1014/mcproxy/releases/download/v1.4/mcproxy_arm64 -O /opt/mcproxy/mcproxy
+  - wget https://github.com/stewi1014/mcproxy/releases/download/v1.5/mcproxy_arm64 -O /opt/mcproxy/mcproxy
   - chmod +x /opt/mcproxy/mcproxy
   - systemctl daemon-reload
   - mkdir -p /var/www/html/minecraft/vanilla
